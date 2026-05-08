@@ -62,8 +62,8 @@
     </div>
 
     <script>
-        // Bildirishnomalarga ruxsat so'rash (foydalanuvchi sahifaga kirganda)
-        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+        // Bildirishnomalarga ruxsat so'rash (faqat ruxsat berilgan brauzerlarda)
+        if ('Notification' in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
             Notification.requestPermission();
         }
 
@@ -122,13 +122,15 @@
                     
                     // 1 minut bo'lganida PUSH bildirishnoma yuborish
                     if (severity === 'severity-high' && !notifiedMessages.has(msg.username)) {
-                        if (Notification.permission === 'granted') {
-                            new Notification('🚨 Agressiv Eslatma!', {
-                                body: `Qara, ${msg.name} senga 1 daqiqadan oshdi yozganiga, hali javob bermading!\nXabari: "${msg.message}"`
-                            });
-                            notifiedMessages.add(msg.username); // Xotiraga yozamiz
-                        } else {
-                            Notification.requestPermission();
+                        if ('Notification' in window) {
+                            if (Notification.permission === 'granted') {
+                                new Notification('🚨 Agressiv Eslatma!', {
+                                    body: `Qara, ${msg.name} senga 1 daqiqadan oshdi yozganiga, hali javob bermading!\nXabari: "${msg.message}"`
+                                });
+                                notifiedMessages.add(msg.username); // Xotiraga yozamiz
+                            } else {
+                                Notification.requestPermission();
+                            }
                         }
                     }
 
