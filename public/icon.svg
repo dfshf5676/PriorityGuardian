@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <!-- Orqa fon (To'q ko'k) -->
+    <rect width="512" height="512" rx="112" fill="#0f172a"/>
+    <!-- Qalqon shakli (Himoyachi ramzi) -->
+    <path d="M256 64L96 128v144c0 100 80 160 160 176c80-16 160-76 160-176V128L256 64z" fill="#3b82f6"/>
+    <!-- Ichki yorqin qalqon -->
+    <path d="M256 104L136 156v116c0 74 60 122 120 136c60-14 120-62 120-136V156L256 104z" fill="#8b5cf6"/>
+    <!-- Yulduzcha yoki markaziy element -->
+    <circle cx="256" cy="256" r="40" fill="#ffffff" opacity="0.9"/>
+</svg>

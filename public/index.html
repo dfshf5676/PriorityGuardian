@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Guardian App</title>
+    
+    <!-- PWA Ilova Sozlamalari -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Service Worker ni ro'yxatdan o'tkazish -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(() => console.log('Ilova ishga tayyor!'));
+        }
+    </script>
+</head>
+<body>
+    <!-- Orqa fondagi harakatlanuvchi animatsiyalar (Aesthetic) -->
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    
+    <div class="dashboard-container">
+        <header>
+            <h1>Priority Guardian</h1>
+            <p>Smart Communication & VIP Tracker by Antigravity AI</p>
+        </header>
+
+        <main>
+            <div class="stats-row">
+                <div class="stat-card">
+                    <h3>Javobsiz Qolgan VIP'lar</h3>
+                    <div class="stat-value" id="unanswered-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Monitoring Tizimi</h3>
+                    <div class="stat-value status-active">Faol</div>
+                </div>
+            </div>
+
+            <div class="glass-panel">
+                <div class="panel-header">
+                    <h2>Kutayotgan Javoblar (Agressiv Eslatma)</h2>
+                    <button id="refresh-btn" class="glow-on-hover">Ma'lumotni Yangilash</button>
+                </div>
+                
+                <div class="list-container" id="messages-list">
+                    <!-- Ma'lumotlar bu yerga JS orqali joylanadi -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Bildirishnomalarga ruxsat so'rash (foydalanuvchi sahifaga kirganda)
+        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+
+        const notifiedMessages = new Set(); // Qayta-qayta eslatma bermasligi uchun
+
+        function calculateTimeDifference(timestamp) {
+            const now = new Date();
+            const messageDate = new Date(timestamp);
+            const diffMs = now - messageDate;
+            
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+            // Raqamlarni 00 formatida (ikki xonali) qilish
+            const h = String(diffHours).padStart(2, '0');
+            const m = String(diffMins).padStart(2, '0');
+            const s = String(diffSecs).padStart(2, '0');
+
+            if (diffHours > 0) {
+                return `⏳ ${h}:${m}:${s}`;
+            }
+            return `⏳ -${m}:${s}`;
+        }
+
+        function getSeverityClass(timestamp) {
+            const now = new Date();
+            const messageDate = new Date(timestamp);
+            const diffMins = (now - messageDate) / (1000 * 60);
+
+            if (diffMins >= 1) return 'severity-high'; // 1 minutdan oshsa qizil
+            if (diffMins >= 0.5) return 'severity-medium'; // 30 sekunddan oshsa sariq
+            return 'severity-low'; // Yaqinda bo'lsa yashil
+        }
+
+        async function fetchUnanswered() {
+            try {
+                const res = await fetch('/api/unanswered');
+                const data = await res.json();
+                const list = document.getElementById('messages-list');
+                const count = document.getElementById('unanswered-count');
+                
+                count.innerText = data.pending.length;
+                list.innerHTML = '';
+
+                if (data.pending.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Hozircha hech qanday javobsiz VIP xabari yo\'q! Hammasi a\'lo darajada. 🎉</div>';
+                    // Agar o'chirilgan bo'lsa, xotiradan tozalaymiz
+                    notifiedMessages.clear();
+                    return;
+                }
+
+                data.pending.forEach(msg => {
+                    const timeDiff = calculateTimeDifference(msg.timestamp);
+                    const severity = getSeverityClass(msg.timestamp);
+                    
+                    // 1 minut bo'lganida PUSH bildirishnoma yuborish
+                    if (severity === 'severity-high' && !notifiedMessages.has(msg.username)) {
+                        if (Notification.permission === 'granted') {
+                            new Notification('🚨 Agressiv Eslatma!', {
+                                body: `Qara, ${msg.name} senga 1 daqiqadan oshdi yozganiga, hali javob bermading!\nXabari: "${msg.message}"`
+                            });
+                            notifiedMessages.add(msg.username); // Xotiraga yozamiz
+                        } else {
+                            Notification.requestPermission();
+                        }
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = `message-card ${severity}`;
+                    
+                    card.innerHTML = `
+                        <div class="message-info">
+                            <h4>${msg.name} <span>(${msg.username})</span></h4>
+                            <p class="msg-text">"${msg.message}"</p>
+                            <span class="ai-badge">${msg.analysis || 'Analiz qilinmoqda...'}</span>
+                        </div>
+                        <div class="message-meta">
+                            <div class="timer">${timeDiff}</div>
+                            <button class="resolve-btn" onclick="resolveMessage('${msg.username}')">✔ Yopish</button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+            Notification.requestPermission();
+            fetchUnanswered();
+        });
+
+        // Xabarni qo'lda o'chirish funksiyasi
+        async function resolveMessage(username) {
+            await fetch('/api/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            });
+            fetchUnanswered(); // Bosilgan zahoti ro'yxatni yangilaydi
+        }
+        
+        setInterval(fetchUnanswered, 1000); // Har sekundda yangilab turamiz (taymer jonli ishlashi uchun)
+        fetchUnanswered();
+    </script>
+</body>
+</html>
