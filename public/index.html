@@ -122,13 +122,13 @@
                     
                     // 1 minut bo'lganida PUSH bildirishnoma yuborish
                     if (severity === 'severity-high' && !notifiedMessages.has(msg.username)) {
+                        notifiedMessages.add(msg.username); // Xotiraga darhol yozamiz (qotib qolmasligi uchun)
                         if ('Notification' in window) {
                             if (Notification.permission === 'granted') {
                                 new Notification('🚨 Agressiv Eslatma!', {
                                     body: `Qara, ${msg.name} senga 1 daqiqadan oshdi yozganiga, hali javob bermading!\nXabari: "${msg.message}"`
                                 });
-                                notifiedMessages.add(msg.username); // Xotiraga yozamiz
-                            } else {
+                            } else if (Notification.permission !== 'denied') {
                                 Notification.requestPermission();
                             }
                         }
