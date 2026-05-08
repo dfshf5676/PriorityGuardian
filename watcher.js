@@ -37,8 +37,8 @@ function getVipList() {
   console.log("Telegram mijoziga ulanilmoqda...");
   await client.connect();
   console.log("Muvaffaqiyatli ulandi! Yangilangan Mantiq va Taymer ishga tushdi...");
+  // 1. Raw Signallarni ushlash (O'QILGANLIK HOLATI)
   client.addEventHandler(async (event) => {
-      // 1. O'QILGANLIK HOLATI (Ignor) - Agar biz o'qisak
       let update = event;
       if (event.className === 'UpdateShort') update = event.update;
 
@@ -47,22 +47,23 @@ function getVipList() {
               const entity = await client.getEntity(update.peer);
               const username = entity.username ? `@${entity.username.toLowerCase()}` : '';
               if (username) {
-                  // O'qildi deb maqomni o'zgartiramiz
                   await supabase.from('unanswered')
                       .update({ status: 'read' })
                       .ilike('username', username)
                       .eq('status', 'unread');
-                  console.log(`\n👀 [O'QILDI] Siz ${username} xabarini o'qidingiz, lekin javob bermadingiz.`);
               }
           } catch(e) {}
-          return;
       }
+  }); // Bunga hech qanday filtr qo'shilmaydi (Raw updates)
 
-      if (!event.message) return;
+  // 2. Yangi kelgan xabarlarni ushlash
+  client.addEventHandler(async (event) => {
       const message = event.message;
+      if (!message) return;
+      
       const vips = getVipList();
 
-      // Soddalashtirilgan AI Analyzer (Kalit so'zlar asosida)
+      // Soddalashtirilgan AI Analyzer
       function analyzeMessage(text) {
           const t = text.toLowerCase();
           if (t.includes('tez') || t.includes('zudlik') || t.includes('muhim') || t.includes('shoshilinch') || t.includes('bugun')) return "Juda Muhim Topshiriq 🚨";
@@ -123,7 +124,5 @@ function getVipList() {
               console.log(`⏳ Aqlli taymer ishga tushdi! (Xabar darajasiga qarab eslatiladi).`);
           } else {
               console.log(`(Bu odamdan oldin ham xabar kelgan edi, eslatma kaskadi davom etmoqda)`);
-          }
-      }
   }, new NewMessage({}));
 })();
