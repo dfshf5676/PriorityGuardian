@@ -106,12 +106,11 @@
                 const list = document.getElementById('messages-list');
                 const count = document.getElementById('unanswered-count');
                 
-                count.innerText = data.pending.length;
+                count.innerText = data.pending.filter(m => m.status === 'unread').length;
                 list.innerHTML = '';
 
                 if (data.pending.length === 0) {
                     list.innerHTML = '<div class="empty-state">Hozircha hech qanday javobsiz VIP xabari yo\'q! Hammasi a\'lo darajada. 🎉</div>';
-                    // Agar o'chirilgan bo'lsa, xotiradan tozalaymiz
                     notifiedMessages.clear();
                     return;
                 }
@@ -120,13 +119,21 @@
                     const timeDiff = calculateTimeDifference(msg.timestamp);
                     const severity = getSeverityClass(msg.timestamp);
                     
-                    // 1 minut bo'lganida PUSH bildirishnoma yuborish
-                    if (severity === 'severity-high' && !notifiedMessages.has(msg.username)) {
-                        notifiedMessages.add(msg.username); // Xotiraga darhol yozamiz (qotib qolmasligi uchun)
+                    // Aqlli eslatma mantiqi (Smart Escalation)
+                    const isUrgent = msg.analysis.includes("Juda Muhim");
+                    const messageDate = new Date(msg.timestamp);
+                    const diffMins = (new Date() - messageDate) / (1000 * 60);
+                    
+                    let shouldRemind = false;
+                    if (isUrgent && diffMins >= 15 && msg.reminder_level < 1) shouldRemind = true;
+                    if (!isUrgent && diffMins >= 120 && msg.reminder_level < 1) shouldRemind = true;
+
+                    if (shouldRemind && !notifiedMessages.has(msg.username)) {
+                        notifiedMessages.add(msg.username);
                         if ('Notification' in window) {
                             if (Notification.permission === 'granted') {
-                                new Notification('🚨 Agressiv Eslatma!', {
-                                    body: `Qara, ${msg.name} senga 1 daqiqadan oshdi yozganiga, hali javob bermading!\nXabari: "${msg.message}"`
+                                new Notification('🚨 VIP Eslatma!', {
+                                    body: `Diqqat: ${msg.name} ning xabariga javob bermadingiz!\nXabari: "${msg.message}"`
                                 });
                             } else if (Notification.permission !== 'denied') {
                                 Notification.requestPermission();
@@ -137,11 +144,18 @@
                     const card = document.createElement('div');
                     card.className = `message-card ${severity}`;
                     
+                    const statusBadge = msg.status === 'read' 
+                        ? `<span class="ai-badge" style="background: rgba(234, 179, 8, 0.2); border-color: #eab308; color: #fde047;">👀 O'qildi (Javob kutilyapti)</span>`
+                        : `<span class="ai-badge" style="background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; color: #bae6fd;">🔵 Yangi Xabar</span>`;
+
                     card.innerHTML = `
                         <div class="message-info">
                             <h4>${msg.name} <span>(${msg.username})</span></h4>
                             <p class="msg-text">"${msg.message}"</p>
-                            <span class="ai-badge">${msg.analysis || 'Analiz qilinmoqda...'}</span>
+                            <div style="display:flex; gap: 8px; flex-wrap: wrap;">
+                                ${statusBadge}
+                                <span class="ai-badge">${msg.analysis || 'Analiz qilinmoqda...'}</span>
+                            </div>
                         </div>
                         <div class="message-meta">
                             <div class="timer">${timeDiff}</div>
