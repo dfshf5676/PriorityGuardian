@@ -39,6 +39,24 @@ function getVipList() {
   console.log("Muvaffaqiyatli ulandi! Yangilangan Mantiq va Taymer ishga tushdi...");
 
   client.addEventHandler(async (event) => {
+      // 1. O'QILGANLIK HOLATI (Ignor) - Agar biz o'qisak
+      if (event.className === 'UpdateReadHistoryInbox' || event.className === 'UpdateReadChannelInbox') {
+          try {
+              const entity = await client.getEntity(event.peer);
+              const username = entity.username ? `@${entity.username.toLowerCase()}` : '';
+              if (username) {
+                  // O'qildi deb maqomni o'zgartiramiz
+                  await supabase.from('unanswered')
+                      .update({ status: 'read' })
+                      .ilike('username', username)
+                      .eq('status', 'unread');
+                  console.log(`\n👀 [O'QILDI] Siz ${username} xabarini o'qidingiz, lekin javob bermadingiz.`);
+              }
+          } catch(e) {}
+          return;
+      }
+
+      if (!event.message) return;
       const message = event.message;
       const vips = getVipList();
 
@@ -96,11 +114,13 @@ function getVipList() {
                   name: isVip.name,
                   username: senderUsername,
                   message: message.message,
-                  analysis: aiAnalysis
+                  analysis: aiAnalysis,
+                  status: 'unread',
+                  reminder_level: 0
               }]);
-              console.log(`⏳ Taymer ishga tushdi! Agar javob bermasangiz, Dashboard'da qizarib ko'rinib turadi.`);
+              console.log(`⏳ Aqlli taymer ishga tushdi! (Xabar darajasiga qarab eslatiladi).`);
           } else {
-              console.log(`(Bu odamdan oldin ham xabar kelgan edi, taymer davom etmoqda)`);
+              console.log(`(Bu odamdan oldin ham xabar kelgan edi, eslatma kaskadi davom etmoqda)`);
           }
       }
   }, new NewMessage({}));
