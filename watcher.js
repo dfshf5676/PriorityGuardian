@@ -37,19 +37,34 @@ function getVipList() {
   console.log("Telegram mijoziga ulanilmoqda...");
   await client.connect();
   console.log("Muvaffaqiyatli ulandi! Yangilangan Mantiq va Taymer ishga tushdi...");
+  const vips = getVipList();
+  const vipMap = new Map();
+
+  console.log("VIP ro'yxat uchun ID lar keshlanmoqda...");
+  for (const vip of vips) {
+      try {
+          const entity = await client.getEntity(vip.username);
+          if (entity && entity.id) {
+              vipMap.set(entity.id.toString(), vip.username.toLowerCase());
+          }
+      } catch (e) {
+          console.log(`VIP ni topib bo'lmadi: ${vip.username}`);
+      }
+  }
+
   // 1. Raw Signallarni ushlash (O'QILGANLIK HOLATI)
   client.addEventHandler(async (event) => {
       let updates = [];
       if (event.className === 'UpdateShort') updates = [event.update];
-      else if (event.updates) updates = event.updates; // Updates yoki UpdatesCombined uchun
+      else if (event.updates) updates = event.updates;
       else updates = [event];
 
       for (const update of updates) {
           if (update && (update.className === 'UpdateReadHistoryInbox' || update.className === 'UpdateReadChannelInbox')) {
               try {
-                  const entity = await client.getEntity(update.peer);
-                  const username = entity.username ? `@${entity.username.toLowerCase()}` : '';
-                  if (username) {
+                  const peerId = update.peer && update.peer.userId ? update.peer.userId.toString() : null;
+                  if (peerId && vipMap.has(peerId)) {
+                      const username = vipMap.get(peerId);
                       await supabase.from('unanswered')
                           .update({ status: 'read' })
                           .ilike('username', username)
@@ -61,7 +76,7 @@ function getVipList() {
               }
           }
       }
-  }); // Bunga hech qanday filtr qo'shilmaydi (Raw updates)
+  });
 
   // 2. Yangi kelgan xabarlarni ushlash
   client.addEventHandler(async (event) => {
@@ -130,6 +145,18 @@ function getVipList() {
               }]);
               console.log(`⏳ Aqlli taymer ishga tushdi! (Xabar darajasiga qarab eslatiladi).`);
           } else {
-              console.log(`(Bu odamdan oldin ham xabar kelgan edi, eslatma kaskadi davom etmoqda)`);
+              // Takroriy xabar yozilganda ustidan yangilash!
+              const aiAnalysis = analyzeMessage(message.message);
+              await supabase.from('unanswered')
+                  .update({ 
+                      message: message.message, 
+                      analysis: aiAnalysis,
+                      status: 'unread',
+                      timestamp: new Date().toISOString()
+                  })
+                  .ilike('username', senderUsername);
+              console.log(`(Bu odamdan yana yangi xabar keldi, xabar va taymer yangilandi!)`);
+          }
+      }
   }, new NewMessage({}));
 })();
