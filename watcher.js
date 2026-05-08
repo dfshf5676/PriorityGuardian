@@ -37,12 +37,14 @@ function getVipList() {
   console.log("Telegram mijoziga ulanilmoqda...");
   await client.connect();
   console.log("Muvaffaqiyatli ulandi! Yangilangan Mantiq va Taymer ishga tushdi...");
-
   client.addEventHandler(async (event) => {
       // 1. O'QILGANLIK HOLATI (Ignor) - Agar biz o'qisak
-      if (event.className === 'UpdateReadHistoryInbox' || event.className === 'UpdateReadChannelInbox') {
+      let update = event;
+      if (event.className === 'UpdateShort') update = event.update;
+
+      if (update && (update.className === 'UpdateReadHistoryInbox' || update.className === 'UpdateReadChannelInbox')) {
           try {
-              const entity = await client.getEntity(event.peer);
+              const entity = await client.getEntity(update.peer);
               const username = entity.username ? `@${entity.username.toLowerCase()}` : '';
               if (username) {
                   // O'qildi deb maqomni o'zgartiramiz

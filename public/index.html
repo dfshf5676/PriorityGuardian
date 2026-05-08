@@ -89,14 +89,21 @@
             return `⏳ -${m}:${s}`;
         }
 
-        function getSeverityClass(timestamp) {
+        function getSeverityClass(msg) {
             const now = new Date();
-            const messageDate = new Date(timestamp);
+            const messageDate = new Date(msg.timestamp);
             const diffMins = (now - messageDate) / (1000 * 60);
+            const isUrgent = msg.analysis && msg.analysis.includes("Juda Muhim");
 
-            if (diffMins >= 1) return 'severity-high'; // 1 minutdan oshsa qizil
-            if (diffMins >= 0.5) return 'severity-medium'; // 30 sekunddan oshsa sariq
-            return 'severity-low'; // Yaqinda bo'lsa yashil
+            if (isUrgent) {
+                if (diffMins >= 15) return 'severity-high';
+                if (diffMins >= 5) return 'severity-medium';
+                return 'severity-low';
+            } else {
+                if (diffMins >= 120) return 'severity-high';
+                if (diffMins >= 60) return 'severity-medium';
+                return 'severity-low';
+            }
         }
 
         async function fetchUnanswered() {
@@ -117,7 +124,7 @@
 
                 data.pending.forEach(msg => {
                     const timeDiff = calculateTimeDifference(msg.timestamp);
-                    const severity = getSeverityClass(msg.timestamp);
+                    const severity = getSeverityClass(msg);
                     
                     // Aqlli eslatma mantiqi (Smart Escalation)
                     const isUrgent = msg.analysis.includes("Juda Muhim");
