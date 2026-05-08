@@ -39,20 +39,27 @@ function getVipList() {
   console.log("Muvaffaqiyatli ulandi! Yangilangan Mantiq va Taymer ishga tushdi...");
   // 1. Raw Signallarni ushlash (O'QILGANLIK HOLATI)
   client.addEventHandler(async (event) => {
-      let update = event;
-      if (event.className === 'UpdateShort') update = event.update;
+      let updates = [];
+      if (event.className === 'UpdateShort') updates = [event.update];
+      else if (event.updates) updates = event.updates; // Updates yoki UpdatesCombined uchun
+      else updates = [event];
 
-      if (update && (update.className === 'UpdateReadHistoryInbox' || update.className === 'UpdateReadChannelInbox')) {
-          try {
-              const entity = await client.getEntity(update.peer);
-              const username = entity.username ? `@${entity.username.toLowerCase()}` : '';
-              if (username) {
-                  await supabase.from('unanswered')
-                      .update({ status: 'read' })
-                      .ilike('username', username)
-                      .eq('status', 'unread');
+      for (const update of updates) {
+          if (update && (update.className === 'UpdateReadHistoryInbox' || update.className === 'UpdateReadChannelInbox')) {
+              try {
+                  const entity = await client.getEntity(update.peer);
+                  const username = entity.username ? `@${entity.username.toLowerCase()}` : '';
+                  if (username) {
+                      await supabase.from('unanswered')
+                          .update({ status: 'read' })
+                          .ilike('username', username)
+                          .eq('status', 'unread');
+                      console.log(`\n👀 [O'QILDI] Siz ${username} xabarini o'qidingiz!`);
+                  }
+              } catch(e) {
+                  console.log("O'qilganlikni aniqlashda xato:", e.message);
               }
-          } catch(e) {}
+          }
       }
   }); // Bunga hech qanday filtr qo'shilmaydi (Raw updates)
 
